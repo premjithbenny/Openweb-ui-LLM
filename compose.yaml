@@ -1,0 +1,50 @@
+services:
+  llm:
+    image: vllm/vllm-openai:latest
+    container_name: rag-llm
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+    ipc: host
+    command:
+      - --model
+      - Qwen/Qwen2.5-7B-Instruct
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --gpu-memory-utilization
+      - "0.85"
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - hermes
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: rag-open-webui
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    environment:
+      OPENAI_API_BASE_URL: http://llm:8000/v1
+      OPENAI_API_KEY: local-dev-key
+      WEBUI_SECRET_KEY: replace-with-a-long-random-secret
+    volumes:
+      - open-webui-data:/app/backend/data
+    depends_on:
+      - llm
+
+volumes:
+  hf-cache:
+  open-webui-data:
